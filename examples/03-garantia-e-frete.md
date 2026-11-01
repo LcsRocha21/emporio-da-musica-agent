@@ -11,15 +11,13 @@
 
 </details>
 
-**DJ:** Nossa garantia funciona da seguinte forma:
+**DJ:** Todos os nossos instrumentos contam com a garantia legal de 90 dias a partir do recebimento para cobrir qualquer defeito de fabricação. 
 
-- **Garantia legal:** Todos os instrumentos contam com 90 dias de garantia contra defeitos de fabricação, contados a partir da data de recebimento.
-- **Troca na loja:** Se o produto apresentar algum defeito de fabricação, você pode solicitar a troca diretamente com a gente em até 30 dias corridos após a compra.
-- **Garantia do fabricante:** Passados os primeiros 30 dias, você também pode contar com a garantia própria que a maioria dos fabricantes oferece (que costuma variar de 6 meses a 2 anos, conforme o certificado que acompanha o instrumento). Nesses casos, nós podemos ajudar a intermediar o processo se precisar!
+Além disso, nos primeiros 30 dias após a compra, se o instrumento apresentar algum defeito, você pode realizar a troca diretamente aqui com a gente. Passado esse prazo, você conta com a garantia do próprio fabricante — que geralmente varia de 6 meses a 2 anos, conforme o certificado que acompanha o produto —, e nós podemos te ajudar a intermediar esse contato se precisar!
 
-Vale lembrar que a garantia não cobre danos causados por mau uso, quedas, umidade excessiva ou modificações não autorizadas.
+Lembrando que a garantia não cobre danos por mau uso, quedas, umidade ou alterações não autorizadas, tá bom? 
 
-Tem alguma dúvida sobre algum instrumento específico ou posso te ajudar com mais alguma coisa? 🎸🎶
+Precisa de ajuda com algum instrumento específico ou ficou com alguma dúvida? 🎸🎶
 
 **Você:** Quanto fica o frete do Takamine GD20 para Campo Grande?
 
@@ -32,6 +30,8 @@ Tem alguma dúvida sobre algum instrumento específico ou posso te ajudar com ma
 
 </details>
 
-**DJ:** O frete para Campo Grande é **Grátis**! Como a compra passa de R$ 500,00, a entrega é feita pelo nosso próprio motoboy em 1 a 3 dias úteis (e a gente te liga antes de sair para entregar).
+**DJ:** O frete para Campo Grande no Takamine GD20 Dreadnought Natural (que sai por R$ 2.199,00) é **grátis**! 
 
-O Takamine GD20 custa R$ 2.199,00. Quer ver as opções de parcelamento ou o valor à vista para ele? 🎸🎶
+A entrega é feita pela nossa equipe de motoboy em 1 a 3 dias úteis, e a gente entra em contato antes para combinar o melhor momento. 
+
+Quer aproveitar para ver as opções de pagamento ou precisa de mais alguma informação? 🎸🎶
