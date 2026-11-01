@@ -11,21 +11,23 @@
 
 </details>
 
-**DJ:** Oi Letícia! Sim, você pode devolver o seu ukulele Shelby SU-21S Soprano Sunburst do pedido 7 por arrependimento. Como o prazo é de até 7 dias corridos após o recebimento (e ainda faltam alguns dias com base na estimativa de entrega), o pedido está elegível para reembolso integral na forma original de pagamento. O frete de devolução é por conta da loja, e o produto precisa estar na embalagem original, sem marcas de uso e com todos os acessórios.
+**DJ:** Pode sim, Letícia! Como você comprou o ukulele Shelby, você tem até o dia 24/02/2026 (que são 7 dias corridos após o recebimento estimado) para exercer o seu direito de arrependimento. 
 
-Você gostaria que eu abra a solicitação de devolução com a nossa equipe agora para darmos início ao processo?
+Para a devolução, o instrumento precisa estar na embalagem original, sem marcas de uso e com todos os acessórios. A loja arca com o frete de retorno e o reembolso é feito na mesma forma de pagamento em até 10 dias úteis.
+
+Quer que eu abra uma solicitação com a nossa equipe para iniciar o processo para você? 🎶
 
 **Você:** sim
 
 <details><summary>Ferramentas usadas</summary>
 
-- `handoff_to_human({"reason": "return_or_exchange", "customer_name": "Letícia Rocha", "summary": "Cliente Letícia Rocha (e-mail leticia.rocha@jmail.com) solicitou a devolução por arrependimento do pedido 7 (Ukulele Shelby SU-21S Soprano Sunburst). Prazo elegível dentro dos 7 dias. Cliente quer iniciar o processo de devolução."})`
-  → `{"status": "registered", "ticket_id": "7A880760", "expected_response": "A team member will get back to the customer within 24 business hours."}`
+- `handoff_to_human({"reason": "return_or_exchange", "customer_name": "Letícia Rocha", "summary": "Cliente Letícia Rocha (e-mail leticia.rocha@jmail.com) quer devolver o ukulele Shelby do pedido 7 por arrependimento. Prazo elegível até 24/02/2026. Solicita início do processo de devolução."})`
+  → `{"status": "registered", "ticket_id": "A4CD7A9D", "expected_response": "A team member will get back to the customer within 24 business hours."}`
 
 </details>
 
-**DJ:** Prontinho, Letícia! Registrei a sua solicitação de devolução (número de protocolo **7A880760**). 
+**DJ:** Prontinho, Letícia! Registrei o seu pedido de devolução sob o número de atendimento **A4CD7A9D**. 
 
-Nossa equipe vai entrar em contato com você em até 24 horas úteis para orientar sobre os próximos passos e o envio do ukulele. 
+Nossa equipe vai entrar em contato com você por e-mail em até 24 horas úteis para passar as instruções de postagem do instrumento, tá bom? 
 
-Se precisar de mais alguma coisa é só me chamar. Boa sorte e até mais! 🎸🎶
+Se precisar de mais alguma coisa é só me chamar! 🎸✨
