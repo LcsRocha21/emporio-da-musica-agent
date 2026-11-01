@@ -254,6 +254,10 @@ def check_return_eligibility(order_id: int, reason: str, customer_email: str | N
         result["rule"] = "Right of withdrawal: 7 calendar days after receipt, no justification needed."
         if eligible:
             result["refund"] = "Refund in the original payment method within 10 business days; return shipping is paid by the store."
+            result["refund_note"] = (
+                "The manual does not say when the 10 business days start counting. Say only 'up to 10 business "
+                "days'; do not say it starts when the product comes back or at any other moment."
+            )
     else:
         result["rule"] = "Exchange for preference (color/model/size): 7 days, subject to stock of the desired product."
         if eligible:

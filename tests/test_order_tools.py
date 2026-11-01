@@ -76,6 +76,7 @@ def test_regret_within_7_days_of_delivery(store, at):
     assert result["deadline"] == "01/11/2025"
     assert result["days_left"] == 2
     assert "10 business days" in result["refund"]
+    assert "does not say when" in result["refund_note"]
     assert result["delivery_date_is_estimate"] is True
 
 
