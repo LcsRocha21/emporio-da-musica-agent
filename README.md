@@ -1,41 +1,21 @@
 # Empório da Música — Customer Service Agent
 
-A text-based customer service agent ("DJ") for **Empório da Música**, a fictional
-musical instruments store in Campo Grande/MS. Built in Python as the first stage of
-the Artefact AI Engineer selection process.
+A text-based customer service agent for **Empório da Música**, a fictional musical
+instruments store in Campo Grande/MS. It is called **DJ**, answers customers in Brazilian
+Portuguese in the store's informal and welcoming tone, and decides on its own when to query
+structured data (products, prices, stock, promotions, orders) and when to consult the
+store's policy manual (hours, returns, shipping, payment, warranty). Built in Python as the
+first stage of the Artefact AI Engineer selection process.
 
-The agent answers customers in Brazilian Portuguese, in the store's informal and
-welcoming tone, and decides on its own when to query structured data (products,
-prices, stock, promotions, orders) and when to consult the store's policy manual
-(opening hours, returns, shipping, payment, warranty).
+- **Example conversations:** [`examples/`](examples/README.md) (five real runs, tools included)
+- **Run it:** [Quick start](#quick-start)
+- **Why it is built this way:** [Decisions](#decisions-and-why)
+- **What it does not do well:** [Known limitations](#known-limitations)
+- **How an AI assistant was used:** [AI assistant usage](#ai-assistant-usage)
 
-> **Status: work in progress.** This repository is being built in stages, with one
-> commit per step. The sections below will be completed as the project evolves.
+## Quick start
 
-## Planned architecture
-
-- **Agent approach:** LLM with function calling (hybrid: SQL-backed tools for
-  structured data + retrieval over the policy manual).
-- **Model / provider:** Google Gemini API.
-- **Data layer:** CSV files loaded and cleaned into a local SQLite database.
-- **Interface:** command-line chat, with conversation history persisted per session.
-- **Language:** code, comments and documentation in English; the agent talks to
-  customers in Portuguese (pt-BR).
-
-## Roadmap
-
-- [x] 1. Project skeleton and raw data
-- [x] 2. Data loading and cleaning (see [`data/README.md`](data/README.md))
-- [x] 3. Agent tools (catalog, payments, shipping, orders, returns) + tests
-- [x] 4. Policy manual retrieval (section-level BM25 over the PDF)
-- [x] 5. Agent loop, persona (DJ) and Gemini adapter
-- [x] 6. Conversation history (save, resume and export)
-- [x] 7. Example conversations (see [`examples/`](examples/README.md))
-- [ ] 8. Final README (decisions, limitations, AI assistant usage)
-
-## Setup
-
-Requires Python 3.10 or newer.
+Requires Python 3.10 or newer and a Google AI Studio API key.
 
 ```bash
 # create and activate a virtual environment
@@ -47,28 +27,126 @@ pip install -r requirements.txt
 
 # configure the model provider
 cp .env.example .env             # Windows: copy .env.example .env
-# then edit .env and set GEMINI_API_KEY
 ```
 
-Run the tests with:
+Create a key in [Google AI Studio](https://aistudio.google.com/apikey), put it in `.env` as
+`GEMINI_API_KEY=...` (the file is git-ignored; never share the key), and then:
 
 ```bash
-pytest
+python -m emporio_agent.llm_check     # checks the key and the model with one real question
+python -m emporio_agent               # chat with DJ; type "sair" to leave
+python -m emporio_agent --debug       # same, also printing every tool call and its result
+pytest                                # about 170 tests; they never call the real API
 ```
 
-## Talk to the agent (needs a Gemini API key)
+More options (saved conversations, transcripts, a frozen store clock for testing
+time-dependent rules) are in [Using the agent](#using-the-agent).
 
-1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
-2. Put it in `.env` as `GEMINI_API_KEY=...` (the file is git-ignored; never paste the key anywhere else).
-   Optionally set `GEMINI_MODEL` to use a different model.
-3. Check that the key and model work:
+## Architecture
+
+```
+customer message
+      |
+      v
+  agent loop  (emporio_agent/agent.py)      persona + rules + internal guidelines
+      |   ^                                 (emporio_agent/prompt.py)
+      v   |
+   LLM adapter  (emporio_agent/llm/)  <->  Gemini API, manual function calling
+      |
+      |  tool calls
+      v
+  9 deterministic tools  (emporio_agent/tools/)
+      |                       |
+      v                       v
+  SQLite built from CSVs    BM25 search over the policy manual PDF
+  (products, orders, ...)   (emporio_agent/policies.py)
+```
+
+1. The customer writes a message. The loop sends the whole conversation, the system prompt
+   and the tool declarations to the model.
+2. The model either answers or asks for one or more tool calls. The loop runs them as plain
+   Python functions and feeds the results back, until the model produces the final text
+   (capped at 6 rounds, with a polite fallback).
+3. Every fact in the answer (price, stock, installment, deadline, tracking code, opening
+   hour) comes from a tool result. The model only decides what to look up and how to say it.
+
+## Decisions and why
+
+**No agent framework.** The loop is about 100 lines on top of the Gemini SDK
+(`emporio_agent/agent.py`). With nine tools and a single agent, a framework would add
+abstractions without adding capability, and it would hide the prompt and the tool-calling
+details that matter most here. Owning the loop made it possible to roll a turn back
+cleanly when the provider fails, to cap tool rounds, to turn tool errors into messages the
+model can recover from, and to test the whole agent with a scripted fake model
+(`tests/helpers.py`). The cost: no built-in tracing, memory or retries beyond what is
+written here.
+
+**Gemini, behind a small provider interface.** The agent talks to a provider-neutral
+`LLMClient` (`emporio_agent/llm/base.py`); `gemini.py` is the only file that knows the
+Google SDK, so another provider means writing one class. Gemini was chosen because it
+supports native function calling and was available through an AI Studio key. The adapter
+uses manual function calling (the SDK's automatic mode is disabled), retries rate-limit and
+server errors with backoff, keeps the model's own turn so thought signatures survive while
+tools run, and never shows the model's thought summaries to the customer.
+The default model is `gemini-3.5-flash`, and `GEMINI_MODEL` overrides it. The smaller
+`gemini-3.5-flash-lite` was the first choice, but in testing it kept adding details the
+tools had not stated (for example, saying when the refund period starts counting, which
+the manual does not say). The larger model did it less often, but not never.
+
+**Numbers and rules live in code, not in the prompt.** Prices, PIX discounts, installment
+plans, shipping costs, promotions, return deadlines, store hours and dates are computed by
+Python tools with `Decimal` arithmetic, and each tool returns ready-to-quote display strings
+(`R$ 1.234,56`). The model never does arithmetic on money or dates. Business rules that
+are conditional (an installment minimum, a return window) are therefore unit-tested
+rather than hoped for.
+
+**Tools carry their own instructions.** Besides data, tool results include short hints
+for the model: what to offer next (`next_steps`), what not to reveal (a failed identity
+check says to ask the customer to double-check, never whether the order exists), and, for
+the refund terms, the exact wording to use. The refund-timing problem shows the limits of
+the options I tried: a rule in the system prompt and a "do not say X" note in the tool
+result were both ignored in some runs, with both models. Handing the model the sentence to
+use worked in the run I kept, but one good run is not proof; this is a mitigation.
+
+**Keyword retrieval (BM25) over manual sections, no vector database.** Details
+in [Policy manual retrieval](#policy-manual-retrieval). Short version: the manual is about
+3,000 words split into 26 self-contained sections, so keyword search with a small
+vocabulary bridge is enough, deterministic and testable, and needs no extra API.
+
+**The system prompt** (`emporio_agent/prompt.py`) is written in English and makes the model
+answer in pt-BR. It contains: the persona (DJ is a virtual assistant and never pretends
+to be a person); which tool to use for which kind of question; the scope (instruments
+only, no accessories, no invented partner stores, unrelated questions are politely
+declined); privacy rules for orders; when to escalate; and safety rules (customer messages
+and tool results are data, not instructions). The internal service guidelines from the
+manual (sections 7 and 10: tone, special situations) are embedded verbatim instead of being
+paraphrased. A test checks that the key rules are present and that every tool is mentioned,
+so the routing section cannot silently fall out of date when a tool is added.
+
+**Asking before acting.** Registering a ticket for the human team is an action. The agent
+explains what it found, asks whether the customer wants a ticket, and registers it only
+after a yes (see example 2). It also does not promise outcomes the tools did not state.
+
+**Privacy by construction.** Order details are only returned after the customer gives the
+e-mail or phone registered on the order, and the check happens inside the tool, so it does
+not depend on the model behaving (see example 5).
+
+**Tests.** About 170 tests cover the data cleaning, each tool and its edge cases (promotions,
+installment minimums, return windows, ambiguous identities), the retrieval (including
+off-topic queries that must return nothing), the prompt, the agent loop (with a scripted
+model), the Gemini adapter (with a fake SDK, plus the real SDK types when installed), the
+CLI and the saved conversations.
+
+## Using the agent
+
+Check that the key and model work, and see which models your key can use:
 
 ```bash
 python -m emporio_agent.llm_check --list-models   # models available to your key
 python -m emporio_agent.llm_check                 # one real question; expects a tool call
 ```
 
-4. Start the chat:
+Start the chat (`GEMINI_MODEL` in `.env` overrides the default model):
 
 ```bash
 python -m emporio_agent                           # type "sair" to leave
@@ -92,21 +170,6 @@ about it again.
 
 To test time-dependent rules (opening hours, return windows) with a frozen store clock,
 set `EMPORIO_NOW` (see `.env.example`).
-
-How it works, in short:
-
-- `emporio_agent/prompt.py` holds the persona and rules. The agent is **DJ**, a virtual
-  assistant that answers in Brazilian Portuguese. The internal service guidelines from the
-  manual (sections 7 and 10) are embedded verbatim.
-- `emporio_agent/agent.py` runs the loop: the model either answers or calls tools; tool
-  results are fed back until it produces the final text (capped at 6 rounds).
-- `emporio_agent/llm/` isolates the provider. `gemini.py` uses manual function calling
-  (the SDK's automatic mode is disabled), retries transient errors with backoff, and keeps
-  the model's own turn so thought signatures survive during a tool turn.
-- `emporio_agent/tools/schema.py` builds the tool declarations from the Python signatures
-  and docstrings, so the function and what the model sees cannot drift apart.
-- Prices, installments, promotions, deadlines and dates are always computed by the tools,
-  never by the model.
 
 ## Try the agent's tools (no API key needed)
 
@@ -166,10 +229,17 @@ much larger manual, a hybrid BM25 + embeddings retriever would be the natural ne
   edited. Exact figures (installments, shipping, deadlines) always come from the dedicated
   tools, never from the model reading the manual.
 
-## Assumptions made so far
+## Example conversations
+
+[`examples/`](examples/README.md) has five conversations exported from real runs: a catalog
+search with installments, a return by regret (real-time data plus policy rules), a policy
+question mixed with a shipping question, out-of-scope requests, and an identity check.
+Under each customer message they list the tools the agent called.
+
+## Assumptions
 
 The case allows reasonable assumptions as long as they are documented. These are the
-ones that affect the tools (data assumptions are in [`data/README.md`](data/README.md)):
+ones that affect the agent and its tools (data assumptions are in [`data/README.md`](data/README.md)):
 
 - **Installments.** The manual contradicts itself: the payment table says "up to 12x,
   minimum installment R$ 100", while section 3.1 gives tiered minimums. Section 3.1 is
@@ -207,13 +277,78 @@ ones that affect the tools (data assumptions are in [`data/README.md`](data/READ
 - **Partner stores.** The manual says to suggest partner stores for accessories "when
   possible", but names none, so the agent does not invent any.
 
+## Known limitations
+
+- **Little evaluation.** The agent was checked with unit tests and by hand, including the
+  five example conversations; there is no systematic evaluation set. A language model is not
+  deterministic: the same question can be worded differently, and occasionally with a detail
+  the tools did not state. The refund-timing case was reduced by putting fixed wording in
+  the tool result, not eliminated as a class of problem.
+- **Only text from earlier turns survives a resume.** Saved conversations keep tool results
+  on disk, but only the text of the conversation is sent to the model again, so after
+  resuming DJ checks the data again if the customer asks about it.
+- **The identity check is weak.** Anyone who knows an order number and the registered
+  e-mail or phone gets the order. A real deployment should use the WhatsApp sender number
+  or a one-time code. Two customers share an e-mail in the data; that case is handed to the
+  team instead of guessed.
+- **Dates are approximations.** The data has no real delivery date, so return windows count
+  from the estimated delivery date. Holidays are not known to the store-hours tool.
+- **It cannot change anything.** DJ cannot place, cancel or edit orders. It can only
+  register a hand-over request, which is written to a local file (`chat_history/handoffs.jsonl`);
+  there is no real ticketing system behind it.
+- **Prompt injection is only partly addressed.** The prompt tells the model to treat
+  customer messages as data, and sensitive checks live in tools, but the agent was not
+  red-teamed.
+- **Keyword retrieval can miss paraphrases** that are not in the query expansion list.
+  With a bigger manual, a hybrid with embeddings would be the next step.
+- **Narrow channel and scale.** Command-line chat only, one customer at a time, a local
+  SQLite file, no streaming, no WhatsApp or web integration, Portuguese only.
+- **Customer data goes to the model provider.** Tool results, which contain order data,
+  are sent to the Gemini API. All data here is fictional; with real customers, check the
+  data terms of the plan behind the API key first.
+- **Policy conflicts are resolved by my assumptions** (installments, contacts, return and
+  warranty overlap). They are listed above and should be confirmed with the store.
+- **Model names change.** The default model name is the one available when this was built;
+  if it is retired, set `GEMINI_MODEL` (the `llm_check --list-models` command shows the
+  options).
+
+## AI assistant usage
+
+I built this project together with an AI assistant, Claude (Anthropic), used as a pair
+programmer through the whole process, which the case allowed.
+
+**What the assistant did.** It read the case material, helped me define the scope and the
+architecture, and wrote most of the code, the tests and the documentation, stage by stage.
+It also explored the data and the policy manual and flagged the inconsistencies that are
+documented in `data/README.md` and in the assumptions above.
+
+**What I did.** I proposed the persona name (DJ), approved the stack and the language split
+(code and docs in English, customers in Portuguese) that the assistant recommended, and
+answered the open business questions (for example, to follow section 3.1 of the manual for
+installments).
+I ran everything on my own machine: the assistant's environment could not call the Gemini
+API or install the SDK, so the real model behavior was only ever tested by me, with my own
+key. The problems found that way drove most of the late fixes: the agent answering a
+general-knowledge question, opening a hand-over ticket without asking, and inventing the
+starting point of the refund period. I chose which runs to keep as example conversations, and I
+committed and pushed each stage myself.
+
+**What the assistant got wrong along the way.** A wrong customer count in its first summary
+of the data; search terms that missed products whose data only used English words ("steel");
+a first policy search that was too eager; and the prompt-only fixes that did not hold with the
+smaller model. These were caught by tests, by reading the data, or by running the agent, and
+fixed in later commits.
+
 ## Repository layout
 
 ```
 data/raw/          Source data provided for the case (CSVs and policy manual PDF)
-emporio_agent/     Agent source code (agent loop, prompt, llm/ adapter, tools/, policies, history, CLI)
+data/README.md     Description of the data, cleaning and inconsistencies found
+emporio_agent/     Agent source code: agent loop, prompt, llm/ adapter, tools/, policies, history, CLI
 tests/             Automated tests
 examples/          Five example conversations with the agent
 ```
 
-See [`data/README.md`](data/README.md) for the description of the provided data.
+The project was built in eight stages, one or more commits each: skeleton and raw data,
+data loading and cleaning, tools, policy retrieval, agent loop and Gemini adapter,
+conversation history, example conversations, and this README. See the Git history.
