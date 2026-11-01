@@ -28,8 +28,8 @@ prices, stock, promotions, orders) and when to consult the store's policy manual
 - [x] 2. Data loading and cleaning (see [`data/README.md`](data/README.md))
 - [x] 3. Agent tools (catalog, payments, shipping, orders, returns) + tests
 - [x] 4. Policy manual retrieval (section-level BM25 over the PDF)
-- [ ] 5. Agent loop and persona
-- [ ] 6. CLI and conversation history
+- [x] 5. Agent loop, persona (DJ) and Gemini adapter
+- [ ] 6. Conversation history (save and resume)
 - [ ] 7. Example conversations
 - [ ] 8. Final README (decisions, limitations, AI assistant usage)
 
@@ -55,6 +55,44 @@ Run the tests with:
 ```bash
 pytest
 ```
+
+## Talk to the agent (needs a Gemini API key)
+
+1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
+2. Put it in `.env` as `GEMINI_API_KEY=...` (the file is git-ignored; never paste the key anywhere else).
+   Optionally set `GEMINI_MODEL` to use a different model.
+3. Check that the key and model work:
+
+```bash
+python -m emporio_agent.llm_check --list-models   # models available to your key
+python -m emporio_agent.llm_check                 # one real question; expects a tool call
+```
+
+4. Start the chat:
+
+```bash
+python -m emporio_agent                           # type "sair" to leave
+python -m emporio_agent --name "Lucas Mendes"     # greet a known customer by name
+python -m emporio_agent --debug                   # also print each tool call and its result
+```
+
+To test time-dependent rules (opening hours, return windows) with a frozen store clock,
+set `EMPORIO_NOW` (see `.env.example`).
+
+How it works, in short:
+
+- `emporio_agent/prompt.py` holds the persona and rules. The agent is **DJ**, a virtual
+  assistant that answers in Brazilian Portuguese. The internal service guidelines from the
+  manual (sections 7 and 10) are embedded verbatim.
+- `emporio_agent/agent.py` runs the loop: the model either answers or calls tools; tool
+  results are fed back until it produces the final text (capped at 6 rounds).
+- `emporio_agent/llm/` isolates the provider. `gemini.py` uses manual function calling
+  (the SDK's automatic mode is disabled), retries transient errors with backoff, and keeps
+  the model's own turn so thought signatures survive during a tool turn.
+- `emporio_agent/tools/schema.py` builds the tool declarations from the Python signatures
+  and docstrings, so the function and what the model sees cannot drift apart.
+- Prices, installments, promotions, deadlines and dates are always computed by the tools,
+  never by the model.
 
 ## Try the agent's tools (no API key needed)
 
@@ -159,7 +197,7 @@ ones that affect the tools (data assumptions are in [`data/README.md`](data/READ
 
 ```
 data/raw/          Source data provided for the case (CSVs and policy manual PDF)
-emporio_agent/     Agent source code
+emporio_agent/     Agent source code (agent loop, prompt, llm/ adapter, tools/, policies, CLI)
 tests/             Automated tests
 examples/          Example conversations with the agent (added in step 7)
 ```
