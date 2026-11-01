@@ -27,7 +27,7 @@ prices, stock, promotions, orders) and when to consult the store's policy manual
 - [x] 1. Project skeleton and raw data
 - [x] 2. Data loading and cleaning (see [`data/README.md`](data/README.md))
 - [x] 3. Agent tools (catalog, payments, shipping, orders, returns) + tests
-- [ ] 4. Policy manual retrieval
+- [x] 4. Policy manual retrieval (section-level BM25 over the PDF)
 - [ ] 5. Agent loop and persona
 - [ ] 6. CLI and conversation history
 - [ ] 7. Example conversations
@@ -67,6 +67,7 @@ python -m emporio_agent.tools get_product product="Takamine GD20"
 python -m emporio_agent.tools search_products category=violões max_price=1000
 python -m emporio_agent.tools calculate_payment_options product_ids=95
 python -m emporio_agent.tools estimate_shipping city=Dourados product_ids=95
+python -m emporio_agent.tools search_policies query="posso devolver meu pedido?"
 python -m emporio_agent.tools get_order_status order_id=8 customer_email=anacarol.ferreira@coldmail.com
 ```
 
@@ -82,12 +83,36 @@ Linux/macOS `EMPORIO_NOW=2025-10-30T10:00:00 python -m emporio_agent.tools ...`.
 | `estimate_shipping` | Shipping cost / carriers / delivery time by city |
 | `get_order_status` | Order status and tracking, or the list of a customer's orders (identity check required) |
 | `check_return_eligibility` | Applies the regret / defect / preference rules and deadlines to an order |
+| `search_policies` | Searches the policy manual: hours, contacts, payment rules, returns, shipping, warranty, privacy |
 | `get_current_datetime` | Current time and whether the store is open |
 | `handoff_to_human` | Registers a request for the human team (24 business hours) |
 
 Design principles: prices, stock, promotions, installments, deadlines and dates are
 computed in code (never by the LLM); every tool returns ready-to-quote display strings;
 order data is only returned after the customer proves their identity.
+
+## Policy manual retrieval
+
+`emporio_agent/policies.py` reads `data/raw/store_policies.pdf` with `pypdf` (layout mode,
+which keeps table columns apart), removes page headers/footers and splits it into one
+chunk per numbered section (26 chunks, e.g. `4.1 Direito de Arrependimento`). Chunks are
+searched with BM25, plus accent-insensitive matching, light plural stemming and a small
+list of query expansions that map customer words to the manual's vocabulary ("devolver"
+finds "arrependimento", "abre" finds "horário de funcionamento").
+
+Why not embeddings / a vector database: the manual is about 3,000 words, its sections are
+already self-contained units with descriptive titles, retrieval needs no extra API calls,
+and the behavior is deterministic and unit-tested (see `tests/test_policies.py`). With a
+much larger manual, a hybrid BM25 + embeddings retriever would be the natural next step.
+
+- **Weak matches return nothing.** For off-topic questions the tool says the manual has no
+  answer, and the agent is told to offer a hand-over instead of guessing.
+- **Internal sections** (section 7 on tone of voice and service flow, and section 10) are
+  not searchable by customers' questions; they are used to write the agent's instructions.
+- **Notes on inconsistencies.** Where the manual is ambiguous or contradicts itself, the
+  retrieved chunk carries a note for the model (see `CHUNK_NOTES`). The raw text is never
+  edited. Exact figures (installments, shipping, deadlines) always come from the dedicated
+  tools, never from the model reading the manual.
 
 ## Assumptions made so far
 
@@ -115,6 +140,20 @@ ones that affect the tools (data assumptions are in [`data/README.md`](data/READ
 - **Identity check.** The customer must give the e-mail or phone registered on the order.
   A real deployment would use the WhatsApp sender number or a one-time code instead.
 - **Holidays** are not detected: the store hours tool only knows the weekly schedule.
+- **Contacts in the manual disagree.** The cover page and the company table give the phone /
+  WhatsApp as (67) 3341-4444, while section 7 says the WhatsApp channel is (67) 3321-4500.
+  The agent quotes both with their labels (phone and WhatsApp). The company table also
+  writes the e-mail domain with an accent (`empóriodamusica`), which is treated as a typo:
+  `contato@emporiodamusica.com.br` (the cover page spelling) is used. These should be
+  confirmed with the store.
+- **Campaigns are not offers.** Section 6.1 lists campaigns (Black Friday 15-30%, Dia do
+  Músico, ...) in general terms. Only promotions active in the data are valid, so the
+  agent never promises a campaign discount even in November.
+- **Defect rules overlap.** Section 4.2 gives 30 days from purchase to exchange a defective
+  item, and section 8.1 a 90-day legal warranty from receipt. The returns tool applies
+  the 30-day exchange first and then points to the legal/manufacturer warranty.
+- **Partner stores.** The manual says to suggest partner stores for accessories "when
+  possible", but names none, so the agent does not invent any.
 
 ## Repository layout
 

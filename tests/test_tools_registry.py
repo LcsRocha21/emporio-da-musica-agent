@@ -6,7 +6,7 @@ from emporio_agent.tools.__main__ import main, parse_value
 
 
 def test_every_tool_is_documented_and_fully_typed():
-    assert len(TOOLS) == 8
+    assert len(TOOLS) == 9
     for name, fn in TOOLS.items():
         assert fn.__doc__ and len(fn.__doc__) > 80, f"{name} needs a docstring: the LLM reads it"
         for param in inspect.signature(fn).parameters.values():
@@ -22,6 +22,7 @@ def test_tool_results_are_json_serializable(store, at):
         ("estimate_shipping", {"city": "Dourados", "product_ids": [95]}),
         ("get_order_status", {"order_id": 8, "customer_email": "anacarol.ferreira@coldmail.com"}),
         ("check_return_eligibility", {"order_id": 1, "reason": "regret", "customer_phone": "(67) 98432-1098"}),
+        ("search_policies", {"query": "horário de funcionamento"}),
         ("get_current_datetime", {}),
         ("handoff_to_human", {"summary": "test"}),
     ]
