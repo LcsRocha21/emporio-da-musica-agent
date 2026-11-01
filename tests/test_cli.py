@@ -1,6 +1,8 @@
+import pytest
+
 from emporio_agent import cli, llm_check
 from emporio_agent.agent import Agent
-from emporio_agent.llm.base import LLMError
+from emporio_agent.llm.base import LLMError, Message, ToolCall, ToolResult
 from tests.helpers import ScriptedLLM, call, say
 
 
@@ -81,3 +83,102 @@ def test_llm_check_reports_provider_failures(monkeypatch, capsys):
     monkeypatch.setattr(llm_check, "GeminiLLM", lambda: ScriptedLLM(LLMError("Gemini API error 403: denied")))
     assert llm_check.main([]) == 1
     assert "[FAILED] Gemini API error 403" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------ saving and resuming
+
+
+def test_after_turn_runs_once_per_delivered_answer_and_not_after_errors():
+    saved = []
+    agent = Agent(ScriptedLLM(say("um"), LLMError("quota"), say("dois")))
+    lines, feed = [], iter(["a", "b", "c"])
+    cli.run_chat(agent, input_fn=lambda p: next(feed, "sair"), print_fn=lambda *a: lines.append(" ".join(map(str, a))),
+                 after_turn=lambda current: saved.append(len(current.messages)))
+    assert saved == [2, 4]  # the failed turn was rolled back and never saved
+
+
+def test_resumed_conversation_shows_a_recap_instead_of_the_greeting():
+    agent = Agent(ScriptedLLM(say("Claro!")))
+    agent.messages = [
+        Message("user", text="oi"),
+        Message("assistant", text="Fala!"),
+        Message("user", text="quero um violão"),
+        Message("assistant", tool_calls=[ToolCall("search_products", {}, "x")]),
+        Message("tool", tool_results=[ToolResult("search_products", {}, "x")]),
+        Message("assistant", text="Tenho vários!"),
+    ]
+    output = run(agent, ["pode ser"])
+    assert "conversa retomada" in output
+    assert "Você: quero um violão" in output and "DJ: Tenho vários!" in output
+    assert "Eu sou o DJ" not in output and "Fala!" not in output.split("conversa retomada")[1].split("Você: quero")[0]
+    assert "DJ: Claro!" in output
+
+
+@pytest.fixture
+def chat_env(monkeypatch, tmp_path):
+    """Run main() against a temporary history folder with a scripted model and typed input."""
+    from emporio_agent import config
+    import emporio_agent.llm.gemini as gemini
+
+    monkeypatch.setattr(config, "CHAT_HISTORY_DIR", tmp_path)
+    models = []
+
+    def start(*answers, typed):
+        llm = ScriptedLLM(*answers)
+        models.append(llm)
+        monkeypatch.setattr(gemini, "GeminiLLM", lambda: llm)
+        feed = iter(typed)
+        monkeypatch.setattr("builtins.input", lambda prompt="": next(feed))
+        return llm
+
+    start.dir = tmp_path
+    return start
+
+
+def test_main_saves_the_session_and_a_second_run_resumes_it(chat_env, capsys):
+    chat_env(say("Temos sim!"), typed=["tem violão?", "sair"])
+    assert cli.main(["--session", "ana", "--name", "Ana Carolina"]) == 0
+    assert "Conversa salva em ana.json" in capsys.readouterr().out
+    assert (chat_env.dir / "ana.json").is_file()
+
+    llm = chat_env(say("Claro, qual?"), typed=["quero o mais barato", "sair"])
+    assert cli.main(["--session", "ana"]) == 0
+    output = capsys.readouterr().out
+    assert "conversa retomada" in output and "DJ: Temos sim!" in output
+    sent = llm.calls[0]
+    assert [m.text for m in sent["messages"]] == ["tem violão?", "Temos sim!", "quero o mais barato"]
+    assert "The customer's name is Ana Carolina" in sent["system_prompt"]  # name restored from the file
+
+
+def test_main_resume_picks_the_latest_session_or_starts_fresh(chat_env, capsys):
+    chat_env(say("a"), typed=["oi", "sair"])
+    assert cli.main(["--resume"]) == 0
+    assert "nenhuma conversa salva" in capsys.readouterr().out
+
+    chat_env(say("b"), typed=["de novo", "sair"])
+    assert cli.main(["--resume"]) == 0
+    assert "conversa retomada" in capsys.readouterr().out
+
+
+def test_main_exports_a_markdown_transcript(chat_env, tmp_path):
+    chat_env(call("get_current_datetime"), say("Hoje é domingo."), typed=["que dia é hoje?", "sair"])
+    target = tmp_path / "out" / "example.md"
+    target.parent.mkdir()
+    assert cli.main(["--session", "ex", "--export", str(target)]) == 0
+    text = target.read_text(encoding="utf-8")
+    assert "**Você:** que dia é hoje?" in text and "get_current_datetime" in text and "**DJ:** Hoje é domingo." in text
+
+
+def test_main_rejects_bad_session_names_and_corrupt_files(chat_env, capsys):
+    assert cli.main(["--session", "../evil"]) == 2
+    assert "Session names may only contain" in capsys.readouterr().out
+
+    (chat_env.dir / "bad.json").write_text("{oops", encoding="utf-8")
+    assert cli.main(["--session", "bad"]) == 2
+    assert "not a valid saved conversation" in capsys.readouterr().out
+
+
+def test_session_and_resume_cannot_be_combined(capsys):
+    with pytest.raises(SystemExit):
+        cli.main(["--session", "a", "--resume"])
+    assert "not both" in capsys.readouterr().err

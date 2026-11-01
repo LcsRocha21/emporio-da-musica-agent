@@ -8,8 +8,10 @@ from zoneinfo import ZoneInfo
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 DB_PATH = PROJECT_ROOT / "data" / "store.db"
-# Requests handed over to the human team are appended here (git-ignored).
-HANDOFF_LOG_PATH = PROJECT_ROOT / "chat_history" / "handoffs.jsonl"
+# Saved conversations and handoff tickets live here (git-ignored: they hold customer data).
+CHAT_HISTORY_DIR = PROJECT_ROOT / "chat_history"
+# Requests handed over to the human team are appended here.
+HANDOFF_LOG_PATH = CHAT_HISTORY_DIR / "handoffs.jsonl"
 
 # Campo Grande/MS is on Mato Grosso do Sul time (UTC-4).
 STORE_TIMEZONE = ZoneInfo("America/Campo_Grande")
