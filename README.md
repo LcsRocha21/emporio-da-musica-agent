@@ -10,7 +10,7 @@ first stage of the Artefact AI Engineer selection process.
 - **Example conversations:** [`examples/`](examples/README.md) (five real runs, tools included)
 - **Run it:** [Quick start](#quick-start)
 - **Why it is built this way:** [Decisions](#decisions-and-why)
-- **What it does not do well:** [Known limitations](#known-limitations)
+- **What it does not do well, and what comes next:** [Known limitations](#known-limitations), [With more time](#what-i-would-do-with-more-time)
 - **How an AI assistant was used:** [AI assistant usage](#ai-assistant-usage)
 
 ## Quick start
@@ -311,6 +311,27 @@ ones that affect the agent and its tools (data assumptions are in [`data/README.
 - **Model names change.** The default model name is the one available when this was built;
   if it is retired, set `GEMINI_MODEL` (the `llm_check --list-models` command shows the
   options).
+
+## What I would do with more time
+
+1. **An evaluation set.** A few dozen scripted conversations with the tools and facts each
+   one must use, run against the real model after every prompt or tool change, so that
+   regressions like the refund-timing one are caught by a command instead of by reading
+   transcripts.
+2. **An answer check against the tool results.** Compare every number, date and amount in
+   a reply with what the tools returned in that turn, and retry or flag the answer when a
+   figure was not in a tool result. This targets the main weakness seen in testing:
+   details the tools did not state.
+3. **Real identity and real hand-over.** One-time codes or the WhatsApp sender number for
+   the identity check, and a connection to the store's ticketing system or CRM instead of a
+   local file. Later, actions such as cancelling an order, always with an explicit
+   confirmation step.
+4. **Better memory.** Keep a short structured summary of what was already looked up, so a
+   resumed conversation does not lose tool results.
+5. **Retrieval that scales.** If the manual grows, add embeddings and a reranker next to
+   BM25, and measure retrieval separately from the answers.
+6. **Operations.** Logging of tool calls, latency and cost per conversation; a holiday
+   calendar for the store hours; a real WhatsApp channel; red-teaming for prompt injection.
 
 ## AI assistant usage
 
