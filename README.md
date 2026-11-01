@@ -29,8 +29,8 @@ prices, stock, promotions, orders) and when to consult the store's policy manual
 - [x] 3. Agent tools (catalog, payments, shipping, orders, returns) + tests
 - [x] 4. Policy manual retrieval (section-level BM25 over the PDF)
 - [x] 5. Agent loop, persona (DJ) and Gemini adapter
-- [ ] 6. Conversation history (save and resume)
-- [ ] 7. Example conversations
+- [x] 6. Conversation history (save, resume and export)
+- [x] 7. Example conversations (see [`examples/`](examples/README.md))
 - [ ] 8. Final README (decisions, limitations, AI assistant usage)
 
 ## Setup
@@ -75,6 +75,20 @@ python -m emporio_agent                           # type "sair" to leave
 python -m emporio_agent --name "Lucas Mendes"     # greet a known customer by name
 python -m emporio_agent --debug                   # also print each tool call and its result
 ```
+
+Conversations are saved automatically after every answer to `chat_history/` (git-ignored,
+because it holds customer data):
+
+```bash
+python -m emporio_agent --session ana       # saves to chat_history/ana.json; resumes it if it exists
+python -m emporio_agent --resume            # continues the most recent saved conversation
+python -m emporio_agent --export chat.md    # also writes a Markdown transcript, tools included
+```
+
+A resumed conversation keeps what was said, and the customer's name. The tool results of
+earlier turns are kept in the file for the record but are not sent to the model again, only
+the text of the conversation is, so after resuming DJ re-checks data if the customer asks
+about it again.
 
 To test time-dependent rules (opening hours, return windows) with a frozen store clock,
 set `EMPORIO_NOW` (see `.env.example`).
@@ -197,9 +211,9 @@ ones that affect the tools (data assumptions are in [`data/README.md`](data/READ
 
 ```
 data/raw/          Source data provided for the case (CSVs and policy manual PDF)
-emporio_agent/     Agent source code (agent loop, prompt, llm/ adapter, tools/, policies, CLI)
+emporio_agent/     Agent source code (agent loop, prompt, llm/ adapter, tools/, policies, history, CLI)
 tests/             Automated tests
-examples/          Example conversations with the agent (added in step 7)
+examples/          Five example conversations with the agent
 ```
 
 See [`data/README.md`](data/README.md) for the description of the provided data.
