@@ -25,7 +25,7 @@ prices, stock, promotions, orders) and when to consult the store's policy manual
 ## Roadmap
 
 - [x] 1. Project skeleton and raw data
-- [ ] 2. Data loading and cleaning
+- [x] 2. Data loading and cleaning (see [`data/README.md`](data/README.md))
 - [ ] 3. Agent tools (catalog, orders, promotions, payments) + tests
 - [ ] 4. Policy manual retrieval
 - [ ] 5. Agent loop and persona
