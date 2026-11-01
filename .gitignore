@@ -179,3 +179,9 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Project-specific
+# Local SQLite databases built from data/raw at runtime
+*.db
+# Saved conversation histories
+chat_history/
